@@ -104,7 +104,7 @@ int ScramcastMainServer::handle_packet(struct SC_Packet* packet_buf, int32_t pac
 		return -1;
 	bool host_in_range = (packet_buf->host < MAX_HOSTS) && (packet_buf->host >=0);
 	bool offset_length_in_range = (offset < MAX_MEMORY) &&
-			((offset+length) < MAX_MEMORY) && (length <= MAX_PACKET_DATA_LEN) && (length > 0);
+			((offset+length) <= MAX_MEMORY) && (length <= MAX_PACKET_DATA_LEN) && (length > 0);
 	bool received_match_length = (packet_len == (int32_t)(sizeof( struct SC_Packet) - MAX_PACKET_DATA_LEN + length));
 	if (host_in_range && offset_length_in_range && received_match_length )
 	{
