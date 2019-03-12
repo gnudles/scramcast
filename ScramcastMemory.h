@@ -9,6 +9,7 @@
 #define SCRAMCASTMEMORY_H_
 
 #define SHAREDMEM
+#define NETWORKING
 #include "sc_defines.h"
 struct counters_page
 {

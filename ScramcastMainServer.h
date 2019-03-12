@@ -39,7 +39,7 @@ private:
 	int32_t read_command(int fd);
 	int32_t accept_connections();
 	int32_t remove_connection(int fd);
-	static int handle_packet(struct SC_Packet* packet_buf, int32_t packet_len);
+	static int handle_packet(struct SC_Packet* packet_buf, int32_t packet_len, int fix_endianess);
 	int set_fd_set(fd_set* read_fds);
 	int32_t memory_check();
 	int32_t run_memwatch(u_int8_t NetId,struct memwatch watch);

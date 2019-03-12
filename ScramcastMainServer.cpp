@@ -93,11 +93,50 @@ int32_t ScramcastMainServer::AddMemoryWatch(u_int8_t NetId, u_int32_t Offset, u_
 	SC_UNLOCK_MUTEX(_watchersMutex);
 	return 0;
 }
-
-int ScramcastMainServer::handle_packet(struct SC_Packet* packet_buf, int32_t packet_len)
+extern "C" int64_t getTime(); // microseconds resolution
+static inline uint32_t swpbl(uint32_t x) //swap bytes of long
 {
+	//TODO: replace with a suitable builtin
+	return ((x & 0x000000FF) << 24) | ((x & 0x0000FF00) << 8)
+			| ((x & 0x00FF0000) >> 8) | ((x & 0xFF000000) >> 24);
+}
+static inline uint16_t swpbs(uint16_t x) //swap bytes of short
+{
+	//TODO: replace with a suitable builtin
+	return ((x & 0x00FF) << 8) | ((x & 0xFF00) >> 8);
+}
+static inline void swpbl_a(uint32_t* x,int n) //swap bytes of long
+{
+	for (int i = 0 ; i < n; ++i)
+	{
+		*x = swpbl(*x);
+		++x;
+	}
+}
+static inline void swpbs_a(uint16_t* x,int n) //swap bytes of long
+{
+	for (int i = 0 ; i < n; ++i)
+	{
+		*x = swpbs(*x);
+		++x;
+	}
+}
+
+int ScramcastMainServer::handle_packet(struct SC_Packet* packet_buf, int32_t packet_len, int fix_endianess)
+{
+	if (fix_endianess)
+	{
+		packet_buf->magic = swpbl(packet_buf->magic);
+		packet_buf->net = swpbs(packet_buf->net);
+		packet_buf->host = swpbs(packet_buf->host);
+		packet_buf->timetag = swpbl(packet_buf->timetag);
+		packet_buf->msg_id = swpbl(packet_buf->msg_id);
+		packet_buf->address = swpbl(packet_buf->address);
+		packet_buf->length = swpbl(packet_buf->length);
+	}
 	uint32_t offset = packet_buf->address;//  for memcpy
 	uint32_t length = packet_buf->length;//  for memcpy
+	uint32_t flags = packet_buf->magic & (~MAGIC_MASK);
 	uint8_t * data= packet_buf->data;
 	ScramcastMemory * mem = ScramcastMemory::getMemoryByNet(packet_buf->net);
 	if (mem == NULL)
@@ -106,8 +145,34 @@ int ScramcastMainServer::handle_packet(struct SC_Packet* packet_buf, int32_t pac
 	bool offset_length_in_range = (offset < MAX_MEMORY) &&
 			((offset+length) <= MAX_MEMORY) && (length <= MAX_PACKET_DATA_LEN) && (length > 0);
 	bool received_match_length = (packet_len == (int32_t)(sizeof( struct SC_Packet) - MAX_PACKET_DATA_LEN + length));
-	if (host_in_range && offset_length_in_range && received_match_length )
+	bool flags_ok = ((flags&(MAGIC_32BIT|MAGIC_16BIT)) != (MAGIC_32BIT|MAGIC_16BIT));
+	if (host_in_range && offset_length_in_range && received_match_length && flags_ok)
 	{
+		if (fix_endianess)
+		{
+			if (packet_buf->magic & MAGIC_32BIT)
+			{
+				if ( (length % 4) != 0 )
+				{
+					fprintf(stderr,TERM_RED_COLOR 
+					"received malformed package from host %d on network %d, offset %u, length %u. length should be divadable by 4\n"
+					TERM_RESET, (int)packet_buf->host, (int)packet_buf->net, packet_buf->address, length);
+					return -1;
+				}
+				swpbl_a((uint32_t*)data,length/4);
+			}
+			else if (packet_buf->magic & MAGIC_16BIT)
+			{
+				if ( (length % 2) != 0 )
+				{
+					fprintf(stderr,TERM_RED_COLOR 
+					"received malformed package from host %d on network %d, offset %u, length %u. length should be divadable by 2\n"
+					TERM_RESET, (int)packet_buf->host, (int)packet_buf->net, packet_buf->address, length);
+					return -1;
+				}
+				swpbs_a((uint16_t*)data,length/2);
+			}
+		}
 		memcpy((uint8_t*)mem->getBaseMemory() + offset, data, length);
 		memcpy((uint8_t*)mem->getShadowMemory() + offset, data, length);
 		return 0;
@@ -122,27 +187,20 @@ int ScramcastMainServer::handle_packet(struct SC_Packet* packet_buf, int32_t pac
 			fprintf(stderr,TERM_RED_COLOR "reason: bad offset or length. offset is: %u, length is: %u, MAX_MEMORY %d\n" TERM_RESET, packet_buf->address, packet_buf->length, (int)MAX_MEMORY);
 		if (!received_match_length)
 			fprintf(stderr,TERM_RED_COLOR "reason: length of packet unmatches length of data. received bytes is %u, length is: %u\n" TERM_RESET, packet_len, packet_buf->length);
+		if (!flags_ok)
+			fprintf(stderr,TERM_RED_COLOR "reason: bad combination of flags. flags is: %08X\n" TERM_RESET, flags);
 		return -1;
 	}
 
 	return 0;
 }
-extern "C" int64_t getTime(); // microseconds resolution
-inline uint32_t swpbl(uint32_t x) //swap bytes of long
-{
-	return ((x & 0x000000FF) << 24) | ((x & 0x0000FF00) << 8)
-			| ((x & 0x00FF0000) >> 8) | ((x & 0xFF000000) >> 24);
-}
-inline uint16_t swpbs(uint16_t x) //swap bytes of short
-{
-	return ((x & 0x00FF) << 8) | ((x & 0xFF00) >> 8);
-}
+
 static struct SC_Packet packet_buf;
 int32_t ScramcastMainServer::read_packets()
 {
 	int recv_flags = 0 /*MSG_OOB*/;
+	int fix_endian;
 	int32_t bytes_received;
-	char fix_endian;
 	struct sockaddr_in sockname;
 	socklen_t sockname_size;
 	while(1)
@@ -151,17 +209,16 @@ int32_t ScramcastMainServer::read_packets()
 		bytes_received = recvfrom ( _bcastRecvSock, (char*) &packet_buf, sizeof(struct SC_Packet),
 				recv_flags, (struct sockaddr *)&sockname, &sockname_size );
 #ifdef __POSIX__
-		if (bytes_received == -1 && errno == EWOULDBLOCK)
+#define SOCKET_GET_ERROR (errno)
+#define WOULDBLOCK_ERROR EWOULDBLOCK
+#else
+#define SOCKET_GET_ERROR (WSAGetLastError())
+#define WOULDBLOCK_ERROR WSAEWOULDBLOCK
+#endif
+		if (bytes_received == -1 && SOCKET_GET_ERROR == WOULDBLOCK_ERROR)
 		{
 			break;
 		}
-#endif
-#ifdef __WINDOWS__
-		if (bytes_received == -1 && WSAGetLastError() == WSAEWOULDBLOCK)
-		{
-			break;
-		}
-#endif
 		if (bytes_received == -1)
 		{
 			perror("recvfrom");
@@ -174,30 +231,20 @@ int32_t ScramcastMainServer::read_packets()
 		{
 			continue;
 		}
-		fix_endian = (ntohl(packet_buf.magic) & MAGIC_MASK) == MAGIC_KEY;
-		if (fix_endian || (packet_buf.magic & MAGIC_MASK) == MAGIC_KEY )
+		bool good_magic_correct_endian = ((packet_buf.magic & MAGIC_MASK) == MAGIC_KEY);
+		bool from_me = 	good_magic_correct_endian && (_hostId == packet_buf.host);
+		fix_endian = (swpbl(packet_buf.magic) & MAGIC_MASK) == MAGIC_KEY;
+		if (fix_endian || good_magic_correct_endian )
 		{
-			if (fix_endian)
-			{
-				packet_buf.magic = swpbl(packet_buf.magic);
-				packet_buf.net = swpbs(packet_buf.net);
-				packet_buf.host = swpbs(packet_buf.host);
-				packet_buf.timetag = swpbl(packet_buf.timetag);
-				packet_buf.msg_id = swpbl(packet_buf.msg_id);
-				packet_buf.address = swpbl(packet_buf.address);
-				packet_buf.length = swpbl(packet_buf.length);
-			}
-			if  (_hostId == packet_buf.host)
+			if  (from_me)
 			{
 				DINCOME(TERM_YELLOW_COLOR "(self) ");
 			}
 			else
 			{
 				DINCOME(TERM_GREEN_COLOR);
-				handle_packet(&packet_buf,bytes_received);
+				handle_packet(&packet_buf,bytes_received,fix_endian);
 			}
-
-
 
 			if(scramcast_dbg_lvl & LVL_INCOME ) {
 			uint32_t mask = ((int)(packet_buf.length>=4))*0xffffffff|
@@ -272,8 +319,8 @@ int32_t ScramcastMainServer::run_memwatch(u_int8_t NetId,struct memwatch watch)
 	void * memshad = mem->getShadowMemory();
 	if (watch.resolution == 32)
 	{
-		uint32_t offset = watch.offset/4;
-		uint32_t length = watch.length/4;
+		uint32_t offset = watch.offset/4;//round to 4 bytes
+		uint32_t length = watch.length/4;//round to 4 bytes
 		uint32_t offset_end = offset + length;
 		//uint32_t buffer[MAX_PACKET_DATA_LEN/4];
 		uint32_t temp;
@@ -300,7 +347,7 @@ int32_t ScramcastMainServer::run_memwatch(u_int8_t NetId,struct memwatch watch)
 		if (buf_off > 0)
 		{
 			postMemory(NetId,(offset-buf_off)*4,buf_off*4);
-			//buf_off = 0; //unuseful but for safety if one copies this if.
+			buf_off = 0; //unuseful but for safety if one copies this if. good compiler will ignore that
 		}
 #undef R
 #undef S
@@ -335,7 +382,7 @@ int32_t ScramcastMainServer::run_memwatch(u_int8_t NetId,struct memwatch watch)
 		if (buf_off > 0)
 		{
 			postMemory(NetId,(offset-buf_off),buf_off);
-			//buf_off = 0; //unuseful but for safety if one copies this if.
+			buf_off = 0; //unuseful but for safety if one copies this if.
 		}
 #undef R
 #undef S
@@ -434,14 +481,13 @@ void* ScramcastMainServer::server_listen(void* args)
 				--select_result;
 				FD_CLR(CARGS._srvrSock, &sel_read_fd_set);
 			}
-			if (select_result > 0)
+			for (int i = 0 ; (i < nfds) && (select_result > 0) ; ++i)
 			{
-				for (int i = 0 ; i < nfds ; ++i)
+				if (FD_ISSET(i, &sel_read_fd_set))
 				{
-					if (FD_ISSET(i, &sel_read_fd_set))
-					{
-						CARGS.read_command(i);
-					}
+					CARGS.read_command(i);
+					select_result--;
+					FD_CLR(i, &sel_read_fd_set);
 				}
 			}
 		}

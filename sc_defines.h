@@ -64,8 +64,8 @@ typedef __int64 int64_t;
 #ifdef __WINDOWS__
 #ifndef MSVC6
  #include <ws2tcpip.h>
- #include <ws2ipdef.h>
- #include <In6addr.h>
+// #include <ws2ipdef.h>
+// #include <In6addr.h>
 #endif
 
 
@@ -121,6 +121,8 @@ typedef __int64 int64_t;
 #define MAX_PACKET_DATA_LEN 1404
 #define MAGIC_KEY 0x4DADE
 #define MAGIC_MASK 0x000FFFFF
+#define MAGIC_32BIT 0x00200000
+#define MAGIC_16BIT 0x00400000
 #ifdef __POSIX__
 #define TERM_UNDERLINE         "\033[04m"
 #define TERM_RED_COLOR         "\033[031m"
