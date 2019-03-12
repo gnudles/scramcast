@@ -70,7 +70,7 @@ struct IPv4v6 ScramcastServer::getRealSystemIP(uint32_t net_mask, uint32_t net)
        }
        else if (family == AF_INET6) {
             if (memcmp(&((struct sockaddr_in6*)ifa->ifa_addr)->sin6_addr , &in6addr_loopback, 16) != 0 
-               && memcmp(&ret_addr.ipv6 , &IN6ADDR_ANY_INIT, 16) != 0)
+               && memcmp(&ret_addr.ipv6 , &in6addr_any, 16) != 0)
             {
                 ret_addr.ipv6 = ((struct sockaddr_in6*)ifa->ifa_addr)->sin6_addr;
             }
