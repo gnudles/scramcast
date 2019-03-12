@@ -8,7 +8,7 @@
 #ifndef SCRAMCASTSERVER_H_
 #define SCRAMCASTSERVER_H_
 #define NETWORKING
-#include "defines.h"
+#include "sc_defines.h"
 #define SC_SOCKET_ERROR -1
 #define SC_BIND_ERROR -2
 struct IPv4v6

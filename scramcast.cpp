@@ -147,3 +147,9 @@ CEXPORT int32_t SC_addMemoryWatch(ScramcastServerPtr sc_server, u_int8_t net_id,
 }
 
 int scramcast_dbg_lvl = 0;
+
+CEXPORT void SC_setDebugLevel(int dbg_lvl)
+{
+	scramcast_dbg_lvl = dbg_lvl;
+}
+

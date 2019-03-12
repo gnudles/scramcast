@@ -8,14 +8,14 @@
 #include "ScramcastMainServer.h"
 #include "ScramcastMemory.h"
 
-ScramcastMainServer::ScramcastMainServer(int tcp_sock, int scram_sock_send,int scram_sock_recv, int hostId):ScramcastServer(scram_sock_send, hostId),_srvrSock(tcp_sock),_bcastRecvSock(scram_sock_recv),_join(false) {
+ScramcastMainServer::ScramcastMainServer(int tcp_sock, int scram_sock_send,int scram_sock_recv, int hostId):ScramcastServer(scram_sock_send, hostId),_srvrSock(tcp_sock),_bcastRecvSock(scram_sock_recv),_join(SC_FALSE) {
 	_watchersMutex=SC_CREATE_MUTEX();
 }
 
 ScramcastMainServer::~ScramcastMainServer() 
 {
 	printf("bye bye\n");
-		_join = true;
+	ATOMIC_STORE(&_join,SC_TRUE);
 	#ifdef WIN_THREADS
 		WaitForSingleObject(_server_thread_handle, 500); //200ms
 		//TODO: check returned value.
@@ -410,7 +410,7 @@ void* ScramcastMainServer::server_listen(void* args)
 	int select_result;
 	/* Initialize the timeout data structure. */
 
-	while (CARGS._join == false)
+	while (CARGS._join == SC_FALSE)
 	{
 		int nfds = CARGS.set_fd_set(&read_fd_set);
 		sel_read_fd_set = read_fd_set;

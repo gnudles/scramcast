@@ -2,11 +2,13 @@
 #include <time.h>
 #include <windows.h>
 
+#ifndef __GNUC__
 struct timezone 
 {
   int  tz_minuteswest; /* minutes W of Greenwich */
   int  tz_dsttime;     /* type of dst correction */
 };
+#endif // __GNUC__
 static const unsigned __int64 delta_epoch_microsec = 11644473600000000U;
 #ifdef MSVC6
 int gettimeofday(struct timeval *tp, struct timezone *tzp)

@@ -6,6 +6,8 @@
  */
 
 #include "ScramcastMemory.h"
+#include "ScramcastServer.h"
+#include "netconfig.h"
 #include <stdio.h>
 #define MEM_REAL_PLUS_SHADOW MAX_MEMORY*2 // multiply by 2 - first is the real memory, afterwards there's the shadow memory
 
@@ -95,20 +97,20 @@ SCSharedMemory::~SCSharedMemory() {
 #else
 #define SPRINTF_S snprintf
 #endif
-char* ScramcastMemory::createNetKeyName(u_int32_t NetId, char *shmFileName)
+char* ScramcastMemory::createNetKeyName(u_int32_t NetworkInterface,u_int32_t NetId, char *shmFileName)
 {
 	assert (MAX_NETWORKS <= 1000);
 #ifdef __POSIX__
-const char* SC_SHMEM_FORMAT = "/scramcast_net_%03d";
+const char* SC_SHMEM_FORMAT = "/scramcast_net_%08X_%03d";
 #endif
 #ifdef __WINDOWS__
-const char* SC_SHMEM_FORMAT = "scramcast_net_%03d";
+const char* SC_SHMEM_FORMAT = "scramcast_net_%08X_%03d";
 #endif
 
-	SPRINTF_S (shmFileName,256,SC_SHMEM_FORMAT,(u_int32_t)NetId);
+	SPRINTF_S (shmFileName,256,SC_SHMEM_FORMAT,(u_int32_t)NetworkInterface,(u_int32_t)NetId);
 	return shmFileName;
 }
-ScramcastMemory::ScramcastMemory(u_int32_t NetId):_shmem(createNetKeyName(NetId,_shmFileName),MEM_REAL_PLUS_SHADOW) {
+ScramcastMemory::ScramcastMemory(u_int32_t NetId):_shmem(createNetKeyName(ScramcastServer::getSystemIP(NETMASK,DEFAULT_NET).ipv4,NetId,_shmFileName),MEM_REAL_PLUS_SHADOW) {
 
 }
 
@@ -160,7 +162,7 @@ u_int32_t ScramcastMemory::fetchIncCounter(u_int32_t NetId)
 #else
 	u_int32_t val = InterlockedIncrement(counter);
 #endif
-	return val+1;
+	return val-1;
 #endif
 #ifdef __POSIX__
 	u_int32_t val = __atomic_fetch_add(counter,1,__ATOMIC_SEQ_CST);

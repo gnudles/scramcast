@@ -51,6 +51,17 @@ typedef void* ScramcastServerPtr;
 #define SERV_MAIN 1
 #define SERV_SLAV 2
 #define SCRAMCAST_MEM_SIZE (8*1024*1024)
+
+/**
+ * \brief Creates a scramcast server.
+ * There are 2 types of servers: slave and primary. Each computer on a the network can have only one primary server.
+ * The primary server listens to incoming messages,
+ * and the slave server is used for sending outgoing messages and for being informed by the primary server.
+ *	\param server_type specifies the type of the server to create.
+ *      The value can be either SERV_MAIN, SERV_SLAV or SERV_ANY.
+ *	\return The pointer to the server.
+ *	\sa SC_destroyServer()
+**/
 CEXPORT ScramcastServerPtr SC_createServer(u_int32_t server_type);
 /*CEXPORT int32_t SC_startServer(ScramcastServerPtr sc_server);
 CEXPORT int32_t SC_stopServer(ScramcastServerPtr sc_server);*/
@@ -61,6 +72,6 @@ CEXPORT u_int32_t SC_getMemoryLength();
 //return number of byte that was sent.
 CEXPORT u_int32_t SC_postMemory(ScramcastServerPtr sc_server, u_int8_t net_id, u_int32_t offset, u_int32_t length);
 CEXPORT int32_t SC_addMemoryWatch(ScramcastServerPtr sc_server, u_int8_t net_id, u_int32_t offset, u_int32_t length, u_int8_t resolution);
-
+CEXPORT void SC_setDebugLevel(int dbg_lvl);
 
 #endif /* SCRAMCAST2_H_ */

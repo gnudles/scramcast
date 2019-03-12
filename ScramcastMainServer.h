@@ -48,7 +48,7 @@ private:
 	vector<int> connections;
 	vector<struct memwatch> _watchers [MAX_NETWORKS];
 	SC_MUTEX_T _watchersMutex;
-	bool _join;
+	u_int32_t _join;
 };
 
 #endif /* SCRAMCASTMAINSERVER_H_ */

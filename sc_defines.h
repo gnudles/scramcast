@@ -1,12 +1,12 @@
 /*
- * defines.h
+ * sc_defines.h
  *
  *  Created on: Jul 2, 2018
  *      Author: Orr Dvory
  */
 
-#ifndef DEFINES_H_
-#define DEFINES_H_
+#ifndef SC_DEFINES_H_
+#define SC_DEFINES_H_
 
 #if defined(__unix__) || defined(__linux) || (defined (__APPLE__) && defined (__MACH__))
 #define __POSIX__
@@ -64,7 +64,10 @@ typedef __int64 int64_t;
 #ifdef __WINDOWS__
 #ifndef MSVC6
  #include <ws2tcpip.h>
+ #include <ws2ipdef.h>
+ #include <In6addr.h>
 #endif
+
 
 #endif
 #ifdef __POSIX__
@@ -156,9 +159,27 @@ struct SC_Packet
 	uint32_t length;
 	uint8_t data[MAX_PACKET_DATA_LEN];
 };
+#define SC_TRUE 1
+#define SC_FALSE 0
+/* atomic operations */
+#ifdef __POSIX__
+	#define ATOMIC_FETCH_INC(FI_LPTR) __atomic_fetch_add(FI_LPTR,1,__ATOMIC_SEQ_CST)
+	#define ATOMIC_STORE(S_LPTR,S_VAL) __atomic_store_n(S_LPTR, S_VAL, __ATOMIC_RELAXED)
+	#define ATOMIC_LOAD(S_LPTR) __atomic_load_n(S_LPTR, __ATOMIC_RELAXED)
+#elif defined (__WINDOWS__)
+#ifdef MSVC6
+	#define ATOMIC_FETCH_INC(FI_LPTR) ((u_int32_t)InterlockedIncrement((long*)FI_LPTR)-1)
+	#define ATOMIC_STORE(S_LPTR,S_VAL) (*(S_LPTR) = S_VAL)
+	#define ATOMIC_LOAD(S_LPTR) (*(S_LPTR))
+#else
+	#define ATOMIC_FETCH_INC(FI_LPTR) (InterlockedIncrement(FI_LPTR)-1)
+	#define ATOMIC_STORE(S_LPTR,S_VAL) (*(S_LPTR) = S_VAL)
+	#define ATOMIC_LOAD(S_LPTR) (*(S_LPTR))
+#endif
+#endif
 
 
-
+/*end of atomic operations */
 #ifdef __WINDOWS__
 #define SC_MUTEX_T HANDLE
 inline SC_MUTEX_T SC_CREATE_MUTEX()
@@ -211,14 +232,16 @@ inline void SC_DESTROY_MUTEX( SC_MUTEX_T& m )
 #endif
 
 #define LVL_FATAL 0x00000001
-#define LVL_INFO 0x00000002
-#define LVL_INCOME 0x00000004
-#define LVL_OUTGOING 0x00000008
+#define LVL_SEVERE 0x00000002
+#define LVL_INFO 0x00000004
+#define LVL_INCOME 0x00000008
+#define LVL_OUTGOING 0x00000010
 
 extern int scramcast_dbg_lvl;
 //__LINE__ __FILE__ __func__
 #define DFATAL(x) do { if (scramcast_dbg_lvl & LVL_FATAL)  fprintf(stderr, "%s:%d (%s): %s",__FILE__,__LINE__,__func__,x);} while (0);
+#define DSEVERE(...) do { if (scramcast_dbg_lvl & LVL_SEVERE)  fprintf(stderr,__VA_ARGS__);} while (0);
 #define DINFO(...) do { if (scramcast_dbg_lvl & LVL_INFO)  fprintf(stderr,__VA_ARGS__);} while (0);
 #define DINCOME(...) do { if (scramcast_dbg_lvl & LVL_INCOME)  fprintf(stderr,__VA_ARGS__);} while (0);
 
-#endif /* DEFINES_H_ */
+#endif /* SC_DEFINES_H_ */

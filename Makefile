@@ -1,7 +1,7 @@
 CXXFLAGS =	-fPIC -g -Wall -fmessage-length=0  -pthread
 CFLAGS =	-fPIC -g -Wall -fmessage-length=0  -pthread
 OBJS =		scramcast.o ScramcastMainServer.o ScramcastSubServer.o ScramcastServer.o ScramcastMemory.o gettimeofday.o
-$(OBJ): Makefile defines.h
+$(OBJ): Makefile sc_defines.h
 
 LIBS = -lrt -lm -lpthread
 
