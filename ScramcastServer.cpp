@@ -453,7 +453,7 @@ int ScramcastServer::createDatagramBroadcastSocket(uint32_t bind_ipv4) {
 	return sock;
 }
 
-int ScramcastServer::createTCPLocalSocket(bool trytobind, bool *bind_success) {
+int ScramcastServer::createTCPLocalSocket(bool try_to_bind, bool *bind_success) {
 	struct sockaddr_in name;
 	int sock;
 	if (bind_success) *bind_success = false;
@@ -467,7 +467,7 @@ int ScramcastServer::createTCPLocalSocket(bool trytobind, bool *bind_success) {
 #endif
 		return SC_SOCKET_ERROR;
 	}
-	if (trytobind)
+	if (try_to_bind)
 	{
 		/* Bind a name to the socket. */
 		name.sin_family = AF_INET;
@@ -491,7 +491,33 @@ int ScramcastServer::createTCPLocalSocket(bool trytobind, bool *bind_success) {
 	return sock;
 }
 extern "C" int64_t getTime(); // microseconds resolution
-u_int32_t ScramcastServer::postMemory(u_int8_t NetId, u_int32_t Offset, u_int32_t Length)
+u_int32_t ScramcastServer::sendMemoryRequest()
+{
+	struct sockaddr_in brdcst;
+	brdcst.sin_family = AF_INET;
+	brdcst.sin_port = htons (SCRAMCAST_PORT);
+	brdcst.sin_addr.s_addr = htonl (INADDR_BROADCAST);
+	struct SC_Packet packet_buf;
+
+	packet_buf.net = -1;
+	packet_buf.host = _hostId;
+	u_int32_t magic_flags = MAGIC_KEY | MAGIC_RECEIVE;
+	packet_buf.magic = magic_flags;
+	packet_buf.timetag = (uint32_t)(getTime()/1000); // convert microsecond to millisecond.
+	packet_buf.msg_id = 0;
+	int send_flags = 0;
+	ssize_t bytes_sent;
+	bytes_sent = sendto(_bcastSock, (const char*) &packet_buf,
+				sizeof(packet_buf) - MAX_PACKET_DATA_LEN,
+				send_flags, (const struct sockaddr*) &brdcst,
+				sizeof(struct sockaddr_in));
+	if (bytes_sent != sizeof(packet_buf) - MAX_PACKET_DATA_LEN)
+	{
+	    DSEVERE("%s: could not post memory on the socket.",__func__);
+	}
+	return bytes_sent;
+}
+u_int32_t ScramcastServer::postMemory(u_int8_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution)
 {
 	ScramcastMemory *net_mem = ScramcastMemory::getMemoryByNet(NetId);
 	if (net_mem == NULL)
@@ -502,6 +528,11 @@ u_int32_t ScramcastServer::postMemory(u_int8_t NetId, u_int32_t Offset, u_int32_
 	brdcst.sin_port = htons (SCRAMCAST_PORT);
 	brdcst.sin_addr.s_addr = htonl (INADDR_BROADCAST);
 	struct SC_Packet packet_buf;
+	if (Length % (resolution/8) != 0 || Offset % (resolution/8) != 0)
+	{
+	    DFATAL("Alignment error.");
+	    return 0;
+	}
 	if (Offset >= MAX_MEMORY)
 	{
 		printf (TERM_RED_COLOR "ScramcastServer::postMemory: offset is too large!\n" TERM_RESET);
@@ -517,10 +548,14 @@ u_int32_t ScramcastServer::postMemory(u_int8_t NetId, u_int32_t Offset, u_int32_
 			Length);
 	packet_buf.net = NetId;
 	packet_buf.host = _hostId;
-	packet_buf.magic = 0x4DADE;
-	packet_buf.timetag = (uint32_t)(getTime()/1000); // 1/1000 of a second.
+	u_int32_t magic_flags = MAGIC_KEY;
+	magic_flags |= (resolution == 16)? 0 : MAGIC_16BIT;
+	magic_flags |= (resolution == 32)? 0 : MAGIC_32BIT;
+	packet_buf.magic = magic_flags;
+	packet_buf.timetag = (uint32_t)(getTime()/1000); // convert microsecond to millisecond.
 	int send_flags = 0;
 	u_int32_t remaining_length = Length;
+	ssize_t bytes_sent;
 	while (remaining_length > 0) {
 		curr_length = remaining_length;
 		if (curr_length > MAX_PACKET_DATA_LEN)
@@ -531,10 +566,15 @@ u_int32_t ScramcastServer::postMemory(u_int8_t NetId, u_int32_t Offset, u_int32_
 		packet_buf.address = Offset;
 		packet_buf.length = curr_length;
 		packet_buf.msg_id = ScramcastMemory::fetchIncCounter(NetId);
-		sendto(_bcastSock, (const char*) &packet_buf,
+		bytes_sent = sendto(_bcastSock, (const char*) &packet_buf,
 				sizeof(packet_buf) - MAX_PACKET_DATA_LEN + curr_length,
 				send_flags, (const struct sockaddr*) &brdcst,
 				sizeof(struct sockaddr_in));
+		if (bytes_sent != (ssize_t) ( sizeof(packet_buf) - MAX_PACKET_DATA_LEN + curr_length ) )
+		{
+		    DSEVERE("%s: could not post memory on the socket.",__func__);
+		    return bytes_sent;
+		}
 		Offset += curr_length;
 		remaining_length -= curr_length;
 #ifdef DEBUG_SEND

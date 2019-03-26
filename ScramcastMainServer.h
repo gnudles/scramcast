@@ -42,7 +42,8 @@ private:
 	static int handle_packet(struct SC_Packet* packet_buf, int32_t packet_len, int fix_endianess);
 	int set_fd_set(fd_set* read_fds);
 	int32_t memory_check();
-	int32_t run_memwatch(u_int8_t NetId,struct memwatch watch);
+	int32_t send_memory_under_watch();
+	int32_t run_memwatch(u_int8_t NetId,const struct memwatch & watch);
 	int _srvrSock;
 	int _bcastRecvSock;
 	vector<int> connections;

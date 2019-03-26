@@ -102,27 +102,7 @@ typedef __int64 int64_t;
 
 #endif
 
-#define RESOL_DEFAULT 0
-#define RESOL_BIT 1
-#define RESOL_NIBBLE 4
-#define RESOL_BYTE 8
-#define RESOL_WORD 16
-#define RESOL_DWORD 32
-#define RESOL_QWORD 64
 
-#define MAX_CALLBACKS 20
-#define MAX_NETWORKS 12
-#define MAX_CLIENTS 16
-#define MAX_HOSTS 255
-#define KILOBYTE (1024)
-#define MEGABYTE (1024*KILOBYTE)
-
-#define MAX_MEMORY (8*MEGABYTE)
-#define MAX_PACKET_DATA_LEN 1404
-#define MAGIC_KEY 0x4DADE
-#define MAGIC_MASK 0x000FFFFF
-#define MAGIC_32BIT 0x00200000
-#define MAGIC_16BIT 0x00400000
 #ifdef __POSIX__
 #define TERM_UNDERLINE         "\033[04m"
 #define TERM_RED_COLOR         "\033[031m"
@@ -144,6 +124,31 @@ typedef __int64 int64_t;
 #endif
 
 
+#define RESOL_DEFAULT 0
+#define RESOL_BIT 1
+#define RESOL_NIBBLE 4
+#define RESOL_BYTE 8
+#define RESOL_WORD 16
+#define RESOL_DWORD 32
+#define RESOL_QWORD 64
+
+#define MAX_CALLBACKS 20
+#define MAX_NETWORKS 12
+#define MAX_CLIENTS 16
+#define MAX_HOSTS 255
+#define KILOBYTE (1024)
+#define MEGABYTE (1024*KILOBYTE)
+
+#define MAX_MEMORY (8*MEGABYTE)
+#define MAX_PACKET_DATA_LEN 1404
+#define MAGIC_KEY 0x4DADE
+#define MAGIC_MASK 0x000FFFFF
+#define MAGIC_32BIT 0x00200000
+#define MAGIC_16BIT 0x00400000
+#define MAGIC_RECEIVE 0x00100000
+
+
+
 struct SC_Packet
 {
 	uint32_t magic; //should always be 318174 (0x4DADE) if written in same endianess.
@@ -155,8 +160,8 @@ struct SC_Packet
 	//16bit alignment  - 0x00400000 if data is organized in words.
 	uint16_t net;
 	uint16_t host;
-	uint32_t timetag; // 1/1000 of a second.
-	uint32_t msg_id; //
+	uint32_t timetag; // in milliseconds.
+	uint32_t msg_id; //auto incremented index.
 	uint32_t address;
 	uint32_t length;
 	uint8_t data[MAX_PACKET_DATA_LEN];
@@ -178,6 +183,18 @@ struct SC_Packet
 	#define ATOMIC_STORE(S_LPTR,S_VAL) (*(S_LPTR) = S_VAL)
 	#define ATOMIC_LOAD(S_LPTR) (*(S_LPTR))
 #endif
+#endif
+
+#if defined (_MSC_VER)
+  #define BSWAP32(X)   byteswap_ulong(X)
+  #define BSWAP16(X)   byteswap_ushort(X)
+#elif defined(__clang__) || defined (__GNUC__)
+  #define BSWAP32(X) __builtin_bswap32(X)
+  #define BSWAP16(X) __builtin_bswap16(X)
+#else
+  #define BSWAP32(X) (((X & 0x000000FF) << 24) | ((X & 0x0000FF00) << 8)\
+			| ((X & 0x00FF0000) >> 8) | ((X & 0xFF000000) >> 24))
+  #define BSWAP16(X) (((X & 0x00FF) << 8) | ((X & 0xFF00) >> 8))
 #endif
 
 
@@ -241,7 +258,7 @@ inline void SC_DESTROY_MUTEX( SC_MUTEX_T& m )
 
 extern int scramcast_dbg_lvl;
 //__LINE__ __FILE__ __func__
-#define DFATAL(x) do { if (scramcast_dbg_lvl & LVL_FATAL)  fprintf(stderr, "%s:%d (%s): %s",__FILE__,__LINE__,__func__,x);} while (0);
+#define DFATAL(x) do { if (scramcast_dbg_lvl & LVL_FATAL)  fprintf(stderr, TERM_RED_COLOR "%s:%d (%s): %s" TERM_RESET,__FILE__,__LINE__,__func__,x);} while (0);
 #define DSEVERE(...) do { if (scramcast_dbg_lvl & LVL_SEVERE)  fprintf(stderr,__VA_ARGS__);} while (0);
 #define DINFO(...) do { if (scramcast_dbg_lvl & LVL_INFO)  fprintf(stderr,__VA_ARGS__);} while (0);
 #define DINCOME(...) do { if (scramcast_dbg_lvl & LVL_INCOME)  fprintf(stderr,__VA_ARGS__);} while (0);

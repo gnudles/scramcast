@@ -70,6 +70,7 @@ CEXPORT ScramcastServerPtr SC_createServer(u_int32_t server_type){
 		}
 		main_server->setThreadVars(server_thread_id);
 #endif
+        main_server->sendMemoryRequest(); // send request to get memory from other nodes.
 		return main_server;
 	}
 	else if (server_type & SERV_SLAV)//start sub server
@@ -133,11 +134,11 @@ CEXPORT u_int32_t SC_getMemoryLength()
 	return MAX_MEMORY;
 }
 
-CEXPORT u_int32_t SC_postMemory(ScramcastServerPtr sc_server, u_int8_t net_id, u_int32_t offset, u_int32_t length)
+CEXPORT u_int32_t SC_postMemory(ScramcastServerPtr sc_server, u_int8_t net_id, u_int32_t offset, u_int32_t length, u_int8_t resolution)
 {
 	if (sc_server == 0)
 		return 0;
-	return sc_server->postMemory(net_id,offset, length);
+	return sc_server->postMemory(net_id,offset, length, resolution);
 }
 CEXPORT int32_t SC_addMemoryWatch(ScramcastServerPtr sc_server, u_int8_t net_id, u_int32_t offset, u_int32_t length, u_int8_t resolution)
 {
@@ -146,7 +147,7 @@ CEXPORT int32_t SC_addMemoryWatch(ScramcastServerPtr sc_server, u_int8_t net_id,
 	return sc_server->AddMemoryWatch(net_id,offset, length, resolution);
 }
 
-int scramcast_dbg_lvl = 0;
+int scramcast_dbg_lvl = LVL_FATAL | LVL_SEVERE;
 
 CEXPORT void SC_setDebugLevel(int dbg_lvl)
 {

@@ -34,7 +34,7 @@ ScramcastMainServer::~ScramcastMainServer()
 		SC_DESTROY_MUTEX(_watchersMutex);
 
 }
-static int32_t make_union(u_int32_t off1,u_int32_t len1, u_int32_t &off2, u_int32_t &len2)
+static int32_t make_union(u_int32_t off1, u_int32_t len1, u_int32_t &off2, u_int32_t &len2)
 {
 	if ((off1 <= off2 && (off1 + len1 >= off2)) || (off2 <= off1 && (off2 + len2 >= off1)))
 	{
@@ -54,6 +54,11 @@ int32_t ScramcastMainServer::AddMemoryWatch(u_int8_t NetId, u_int32_t Offset, u_
 	{
 		printf (TERM_RED_COLOR "ScramcastMainServer::AddMemoryWatch: offset is too large, not adding watch\n" TERM_RESET);
 		return -1;
+	}
+	if (Length % (resolution/8) != 0 || Offset % (resolution/8) != 0)
+	{
+	    DFATAL("Alignment error.");
+	    return -1;
 	}
 	if (Offset + Length > MAX_MEMORY)
 	{
@@ -96,14 +101,11 @@ int32_t ScramcastMainServer::AddMemoryWatch(u_int8_t NetId, u_int32_t Offset, u_
 extern "C" int64_t getTime(); // microseconds resolution
 static inline uint32_t swpbl(uint32_t x) //swap bytes of long
 {
-	//TODO: replace with a suitable builtin
-	return ((x & 0x000000FF) << 24) | ((x & 0x0000FF00) << 8)
-			| ((x & 0x00FF0000) >> 8) | ((x & 0xFF000000) >> 24);
+	return BSWAP32(x);
 }
 static inline uint16_t swpbs(uint16_t x) //swap bytes of short
 {
-	//TODO: replace with a suitable builtin
-	return ((x & 0x00FF) << 8) | ((x & 0xFF00) >> 8);
+	return BSWAP16(x);
 }
 static inline void swpbl_a(uint32_t* x,int n) //swap bytes of long
 {
@@ -234,6 +236,7 @@ int32_t ScramcastMainServer::read_packets()
 		bool good_magic_correct_endian = ((packet_buf.magic & MAGIC_MASK) == MAGIC_KEY);
 		bool from_me = 	good_magic_correct_endian && (_hostId == packet_buf.host);
 		fix_endian = (swpbl(packet_buf.magic) & MAGIC_MASK) == MAGIC_KEY;
+		uint32_t magic_flags = fix_endian ? swpbl(packet_buf.magic) : packet_buf.magic;
 		if (fix_endian || good_magic_correct_endian )
 		{
 			if  (from_me)
@@ -243,7 +246,14 @@ int32_t ScramcastMainServer::read_packets()
 			else
 			{
 				DINCOME(TERM_GREEN_COLOR);
-				handle_packet(&packet_buf,bytes_received,fix_endian);
+				if (magic_flags & MAGIC_RECEIVE)
+				{
+				    send_memory_under_watch();
+				}
+				else
+				{
+				    handle_packet(&packet_buf,bytes_received,fix_endian);
+				}
 			}
 
 			if(scramcast_dbg_lvl & LVL_INCOME ) {
@@ -259,8 +269,8 @@ int32_t ScramcastMainServer::read_packets()
 		}
 	}
 	return 0;
-
 }
+
 
 int ScramcastMainServer::set_fd_set(fd_set* read_fds)
 {
@@ -310,7 +320,7 @@ int32_t ScramcastMainServer::accept_connections()
 	}
 	return 0;
 }
-int32_t ScramcastMainServer::run_memwatch(u_int8_t NetId,struct memwatch watch)
+int32_t ScramcastMainServer::run_memwatch(u_int8_t NetId, const struct memwatch & watch)
 {
 	ScramcastMemory * mem = ScramcastMemory::getMemoryByNet(NetId);
 	if (mem == NULL)
@@ -334,7 +344,7 @@ int32_t ScramcastMainServer::run_memwatch(u_int8_t NetId,struct memwatch watch)
 			temp = R[offset];
 			if (buf_off == (MAX_PACKET_DATA_LEN/4)-1 || (temp == S[offset] && buf_off > 0))
 			{
-				postMemory(NetId,(offset-buf_off)*4,buf_off*4);
+				postMemory(NetId,(offset-buf_off)*4,buf_off*4, watch.resolution);
 				buf_off=0;
 			}
 			if (temp != S[offset])
@@ -346,7 +356,42 @@ int32_t ScramcastMainServer::run_memwatch(u_int8_t NetId,struct memwatch watch)
 		}
 		if (buf_off > 0)
 		{
-			postMemory(NetId,(offset-buf_off)*4,buf_off*4);
+			postMemory(NetId,(offset-buf_off)*4,buf_off*4, watch.resolution);
+			buf_off = 0; //unuseful but for safety if one copies this if. good compiler will ignore that
+		}
+#undef R
+#undef S
+	}
+	else if (watch.resolution == 16)
+	{
+		uint32_t offset = watch.offset/2;//round to 2 bytes
+		uint32_t length = watch.length/2;//round to 2 bytes
+		uint32_t offset_end = offset + length;
+		//uint32_t buffer[MAX_PACKET_DATA_LEN/2];
+		uint32_t temp;
+		uint16_t buf_off = 0;
+
+#define R ((uint16_t*)memreal)
+#define S ((uint16_t*)memshad)
+		for (; offset < offset_end ; ++offset)
+		{
+			//buffer[buf_off] = R[offset];
+			temp = R[offset];
+			if (buf_off == (MAX_PACKET_DATA_LEN/2)-1 || (temp == S[offset] && buf_off > 0))
+			{
+				postMemory(NetId, (offset - buf_off) * 2, buf_off * 2, watch.resolution);
+				buf_off=0;
+			}
+			if (temp != S[offset])
+			{
+				++buf_off;
+			}
+
+
+		}
+		if (buf_off > 0)
+		{
+			postMemory(NetId, (offset - buf_off) * 2, buf_off * 2, watch.resolution);
 			buf_off = 0; //unuseful but for safety if one copies this if. good compiler will ignore that
 		}
 #undef R
@@ -369,7 +414,7 @@ int32_t ScramcastMainServer::run_memwatch(u_int8_t NetId,struct memwatch watch)
 			temp = R[offset];
 			if (buf_off == (MAX_PACKET_DATA_LEN)-1 || (temp == S[offset] && buf_off > 0))
 			{
-				postMemory(NetId,(offset-buf_off),buf_off);
+				postMemory(NetId,(offset-buf_off),buf_off, watch.resolution);
 				buf_off=0;
 			}
 			if (temp != S[offset])
@@ -381,7 +426,7 @@ int32_t ScramcastMainServer::run_memwatch(u_int8_t NetId,struct memwatch watch)
 		}
 		if (buf_off > 0)
 		{
-			postMemory(NetId,(offset-buf_off),buf_off);
+			postMemory(NetId, (offset-buf_off), buf_off, watch.resolution);
 			buf_off = 0; //unuseful but for safety if one copies this if.
 		}
 #undef R
@@ -401,13 +446,34 @@ int32_t ScramcastMainServer::memory_check()
 			vector<struct memwatch>::const_iterator it_end= _watchers[net].end();
 			for (;it != it_end; ++it)
 			{
-				run_memwatch(net,(struct memwatch)*it);
+				run_memwatch(net,(const struct memwatch &)*it);
 			}
 		}
 	}
 	SC_UNLOCK_MUTEX(_watchersMutex);
 	return 0;
 }
+
+int32_t ScramcastMainServer::send_memory_under_watch()
+{
+    SC_LOCK_MUTEX(_watchersMutex);
+	for (int net=0; net < MAX_NETWORKS ; ++net)
+	{
+		if (!_watchers[net].empty())
+		{
+			vector<struct memwatch>::const_iterator it= _watchers[net].begin();
+			vector<struct memwatch>::const_iterator it_end= _watchers[net].end();
+			for (;it != it_end; ++it)
+			{
+			    postMemory(net, ((const struct memwatch &)*it).offset,
+			    ((const struct memwatch &)*it).length, ((const struct memwatch &)*it).resolution);
+    		}
+		}
+	}
+	SC_UNLOCK_MUTEX(_watchersMutex);
+	return 0;
+}
+
 int32_t ScramcastMainServer::remove_connection(int fd)
 {
 	closesocket(fd);

@@ -29,7 +29,7 @@ int main()
 	for (i=0 ; i < SCRAMCAST_MEM_SIZE/CHUNK_SIZE ; ++i)
 	{
 		memset(&((char*)mem)[i*CHUNK_SIZE],0,CHUNK_SIZE);
-		SC_postMemory(server,0,i*CHUNK_SIZE,CHUNK_SIZE);
+		SC_postMemory(server,0,i*CHUNK_SIZE,CHUNK_SIZE, 8);
 		common_sleep(5);
 	}
 	SC_destroyServer(server);

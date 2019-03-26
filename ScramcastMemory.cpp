@@ -79,7 +79,7 @@ SCSharedMemory::~SCSharedMemory() {
 	{
 		munmap(_pBuf,_length);
 	}
-	//shm_unlink(_key); //We don't unlink because we want to keep those objects.
+	//shm_unlink(_key); //We don't unlink because we want to keep those objects, because other processes are still using this.
 #endif
 #ifdef __WINDOWS__
 	if (_pBuf != NULL )

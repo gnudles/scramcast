@@ -32,10 +32,11 @@ public:
 	virtual ~ScramcastServer();
 	/*virtual int32_t start();
 	virtual int32_t stop();*/
-	virtual u_int32_t postMemory(u_int8_t NetId, u_int32_t Offset, u_int32_t Length);
+	virtual u_int32_t postMemory(u_int8_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution);
+  u_int32_t sendMemoryRequest();
 	virtual int32_t AddMemoryWatch(u_int8_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution)=0;
 	static int createDatagramBroadcastSocket(uint32_t bind_ipv4);
-	static int createTCPLocalSocket(bool trytobind, bool *bind_success);
+	static int createTCPLocalSocket(bool try_to_bind, bool *bind_success);
 	static const struct IPv4v6& getSystemIP(uint32_t net_mask, uint32_t net);
 	static void overrideGetSystemIP(const struct IPv4v6 & ip);
 	static struct IPv4v6 getRealSystemIP(uint32_t net_mask, uint32_t net);

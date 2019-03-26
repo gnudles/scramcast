@@ -25,6 +25,11 @@ int32_t ScramcastSubServer::AddMemoryWatch(u_int8_t NetId, u_int32_t Offset, u_i
 
 	} buf;
 #pragma pack()
+    if (Length % (resolution/8) != 0 || Offset % (resolution/8) != 0)
+	{
+	    DFATAL("Alignment error.");
+	    return -1;
+	}
 	if (Offset >= MAX_MEMORY)
 	{
 		printf(TERM_RED_COLOR "ScramcastSubServer::AddMemoryWatch: bad offset was given %u\n" TERM_RESET ,Offset);
@@ -47,7 +52,6 @@ int32_t ScramcastSubServer::AddMemoryWatch(u_int8_t NetId, u_int32_t Offset, u_i
 	//fsync(_clntSock);
 	printf("sent memory watch command %u %u\n",Offset,Length);
 	return 0;
-
 
 }
 
