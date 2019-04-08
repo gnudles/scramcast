@@ -549,8 +549,8 @@ u_int32_t ScramcastServer::postMemory(u_int8_t NetId, u_int32_t Offset, u_int32_
 	packet_buf.net = NetId;
 	packet_buf.host = _hostId;
 	u_int32_t magic_flags = MAGIC_KEY;
-	magic_flags |= (resolution == 16)? 0 : MAGIC_16BIT;
-	magic_flags |= (resolution == 32)? 0 : MAGIC_32BIT;
+	magic_flags |= (resolution == 16)? MAGIC_16BIT : 0;
+	magic_flags |= (resolution == 32)? MAGIC_32BIT : 0;
 	packet_buf.magic = magic_flags;
 	packet_buf.timetag = (uint32_t)(getTime()/1000); // convert microsecond to millisecond.
 	int send_flags = 0;
