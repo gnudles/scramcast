@@ -23,7 +23,7 @@ class SCSharedMemory
 	inline void *getAddress() { return _pBuf; }
 
   private:
-	const char *_key; // for later unlinking.
+	const char *_key; // for later unlinking. ignore compiler warning please.
 	u_int32_t _length;
 #ifdef __WINDOWS__
 	HANDLE _hMapFile;

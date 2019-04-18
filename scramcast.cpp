@@ -19,8 +19,10 @@ CEXPORT ScramcastServerPtr SC_createServer(u_int32_t server_type){
 	}
 #endif
 	bool bind_success;
-	uint32_t host_id = ScramcastServer::getSystemIP(NETMASK,DEFAULT_NET).ipv4 & (~NETMASK);
-	printf("IMPORTANT: working on network %d.%d.%d.%d",host_id>>24,(host_id>>16)&0xff,(host_id>>8)&0xff,host_id&0xff);
+	uint32_t sys_ip = ScramcastServer::getSystemIP(NETMASK,DEFAULT_NET).ipv4;
+	uint32_t net_ip = (sys_ip & NETMASK) | (~NETMASK);
+	uint32_t host_id = sys_ip & (~NETMASK);
+	printf("SCRAMCAST: IMPORTANT: using network %d.%d.%d.%d (interface %d.%d.%d.%d)\n",net_ip>>24,(net_ip>>16)&0xff,(net_ip>>8)&0xff,net_ip&0xff, sys_ip>>24,(sys_ip>>16)&0xff,(sys_ip>>8)&0xff,sys_ip&0xff);
 	host_id = HASH_HOST(host_id);
 	int tcp_sock = ScramcastServer::createTCPLocalSocket(server_type & SERV_MAIN ,&bind_success);
 	if (tcp_sock < 0)
@@ -134,7 +136,13 @@ CEXPORT u_int32_t SC_getMemoryLength()
 	return MAX_MEMORY;
 }
 
-CEXPORT u_int32_t SC_postMemory(ScramcastServerPtr sc_server, u_int8_t net_id, u_int32_t offset, u_int32_t length, u_int8_t resolution)
+CEXPORT u_int32_t SC_postMemory(ScramcastServerPtr sc_server, u_int8_t net_id, u_int32_t offset, u_int32_t length)
+{
+	if (sc_server == 0)
+		return 0;
+	return sc_server->postMemory(net_id,offset, length, 8);
+}
+CEXPORT u_int32_t SC_postMemoryExt(ScramcastServerPtr sc_server, u_int8_t net_id, u_int32_t offset, u_int32_t length, u_int8_t resolution)
 {
 	if (sc_server == 0)
 		return 0;

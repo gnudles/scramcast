@@ -64,10 +64,7 @@ typedef __int64 int64_t;
 #ifdef __WINDOWS__
 #ifndef MSVC6
  #include <ws2tcpip.h>
-// #include <ws2ipdef.h>
-// #include <In6addr.h>
 #endif
-
 
 #endif
 #ifdef __POSIX__
@@ -184,6 +181,7 @@ struct SC_Packet
 	#define ATOMIC_LOAD(S_LPTR) (*(S_LPTR))
 #endif
 #endif
+/*end of atomic operations */
 
 #if defined (_MSC_VER)
   #define BSWAP32(X)   byteswap_ulong(X)
@@ -198,7 +196,7 @@ struct SC_Packet
 #endif
 
 
-/*end of atomic operations */
+
 #ifdef __WINDOWS__
 #define SC_MUTEX_T HANDLE
 inline SC_MUTEX_T SC_CREATE_MUTEX()

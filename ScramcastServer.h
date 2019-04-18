@@ -33,7 +33,7 @@ public:
 	/*virtual int32_t start();
 	virtual int32_t stop();*/
 	virtual u_int32_t postMemory(u_int8_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution);
-  u_int32_t sendMemoryRequest();
+	u_int32_t sendMemoryRequest();
 	virtual int32_t AddMemoryWatch(u_int8_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution)=0;
 	static int createDatagramBroadcastSocket(uint32_t bind_ipv4);
 	static int createTCPLocalSocket(bool try_to_bind, bool *bind_success);

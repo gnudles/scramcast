@@ -6,8 +6,10 @@ $(OBJ): Makefile sc_defines.h
 LIBS = -lrt -lm -lpthread
 
 TARGET =	libscramcast.so
-all:	$(TARGET) scramdmn clear_scramcast
-
+TARGET_STATIC =	libscramcast.a
+all:	$(TARGET) $(TARGET_STATIC) scramdmn clear_scramcast
+$(TARGET_STATIC):	$(OBJS)
+	ar rcs $(TARGET_STATIC) $(OBJS)
 $(TARGET):	$(OBJS)
 	$(CXX) -shared -fPIC -o $(TARGET) $(OBJS) $(LIBS)
 scramdmn: scramdmn.o $(TARGET)
@@ -15,4 +17,4 @@ scramdmn: scramdmn.o $(TARGET)
 clear_scramcast: clear.o $(TARGET)
 	$(CXX) -o $@ clear.o -L. -lscramcast $(LIBS)
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET) $(TARGET_STATIC)

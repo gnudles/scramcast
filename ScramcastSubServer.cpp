@@ -25,7 +25,7 @@ int32_t ScramcastSubServer::AddMemoryWatch(u_int8_t NetId, u_int32_t Offset, u_i
 
 	} buf;
 #pragma pack()
-    if (Length % (resolution/8) != 0 || Offset % (resolution/8) != 0)
+	if (Length % (resolution/8) != 0 || Offset % (resolution/8) != 0)
 	{
 	    DFATAL("Alignment error.");
 	    return -1;

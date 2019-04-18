@@ -11,11 +11,19 @@
 #include <stdio.h>
 #define MEM_REAL_PLUS_SHADOW MAX_MEMORY*2 // multiply by 2 - first is the real memory, afterwards there's the shadow memory
 
+#ifdef __POSIX__
+#define SHMEM_PREFIX "/"
+#else 
+#define SHMEM_PREFIX ""
+#endif
+
 ScramcastMemory* ScramcastMemory::_mappings[MAX_NETWORKS]={0};
-SCSharedMemory ScramcastMemory::_countersShmem=SCSharedMemory("scramcast_counters",sizeof (struct counters_page));
+//TODO: make that net-interface specific.
+SCSharedMemory ScramcastMemory::_countersShmem=SCSharedMemory(SHMEM_PREFIX "scramcast_counters",sizeof (struct counters_page));
 
 SCSharedMemory::SCSharedMemory(const char* key, u_int32_t length):_key(key),_length(length)
 {
+	DINFO("scramcast: creating Shared Memory %s in size %u\n", key, length);
 #ifdef __POSIX__
 	_shm_fd = shm_open(key,O_RDWR|O_CREAT,0666);
 	if (_shm_fd < 0)
@@ -100,12 +108,8 @@ SCSharedMemory::~SCSharedMemory() {
 char* ScramcastMemory::createNetKeyName(u_int32_t NetworkInterface,u_int32_t NetId, char *shmFileName)
 {
 	assert (MAX_NETWORKS <= 1000);
-#ifdef __POSIX__
-const char* SC_SHMEM_FORMAT = "/scramcast_net_%08X_%03d";
-#endif
-#ifdef __WINDOWS__
-const char* SC_SHMEM_FORMAT = "scramcast_net_%08X_%03d";
-#endif
+
+	const char* SC_SHMEM_FORMAT = SHMEM_PREFIX "scramcast_net_%08X_%03d";
 
 	SPRINTF_S (shmFileName,256,SC_SHMEM_FORMAT,(u_int32_t)NetworkInterface,(u_int32_t)NetId);
 	return shmFileName;

@@ -516,7 +516,7 @@ void* ScramcastMainServer::server_listen(void* args)
 {
 #undef CARGS
 #define CARGS (*(ScramcastMainServer*)args)
-	fd_set read_fd_set,sel_read_fd_set;
+	fd_set sel_read_fd_set;
 	struct timeval timeout;
 	int64_t time_elapsed = 0;
 
@@ -525,8 +525,7 @@ void* ScramcastMainServer::server_listen(void* args)
 
 	while (CARGS._join == SC_FALSE)
 	{
-		int nfds = CARGS.set_fd_set(&read_fd_set);
-		sel_read_fd_set = read_fd_set;
+		int nfds = CARGS.set_fd_set(&sel_read_fd_set);
 		timeout.tv_sec = 0;
 		timeout.tv_usec = (long)(4000 - time_elapsed);//4ms
 		int64_t tdiff = getTime();
