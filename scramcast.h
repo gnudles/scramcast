@@ -69,11 +69,12 @@ CEXPORT int32_t SC_destroyServer(ScramcastServerPtr sc_server);
 CEXPORT int32_t SC_destroyMemories();
 CEXPORT void * SC_getBaseMemory(u_int32_t net_id);
 CEXPORT u_int32_t SC_getMemoryLength();
+//CEXPORT u_int32_t SC_collectMemory(ScramcastServerPtr sc_server, u_int32_t net_id, u_int32_t offset, u_int32_t length, u_int32_t resolution);
 //return number of byte that was sent.
-CEXPORT u_int32_t SC_postMemory(ScramcastServerPtr sc_server, u_int8_t net_id, u_int32_t offset, u_int32_t length);
-CEXPORT u_int32_t SC_postMemoryExt(ScramcastServerPtr sc_server, u_int8_t net_id, u_int32_t offset, u_int32_t length, u_int8_t resolution); //resolution = 8,16,32
+CEXPORT u_int32_t SC_postMemory(ScramcastServerPtr sc_server, u_int32_t net_id, u_int32_t offset, u_int32_t length);
+CEXPORT u_int32_t SC_postMemoryExt(ScramcastServerPtr sc_server, u_int32_t net_id, u_int32_t offset, u_int32_t length, u_int32_t resolution); //resolution = 8,16,32
 
-CEXPORT int32_t SC_addMemoryWatch(ScramcastServerPtr sc_server, u_int8_t net_id, u_int32_t offset, u_int32_t length, u_int8_t resolution); //resolution = 8,16,32
+CEXPORT int32_t SC_addMemoryWatch(ScramcastServerPtr sc_server, u_int32_t net_id, u_int32_t offset, u_int32_t length, u_int32_t resolution); //resolution = 8,16,32
 CEXPORT void SC_setDebugLevel(int dbg_lvl);
 
 #endif /* SCRAMCAST2_H_ */

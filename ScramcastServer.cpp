@@ -517,8 +517,13 @@ u_int32_t ScramcastServer::sendMemoryRequest()
 	}
 	return bytes_sent;
 }
-u_int32_t ScramcastServer::postMemory(u_int8_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution)
+u_int32_t ScramcastServer::postMemory(u_int32_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution)
 {
+    if (NetId >= MAX_NETWORKS)
+    {
+        DFATAL("Invalid Network ID.");
+	    return -1;
+    }
 	ScramcastMemory *net_mem = ScramcastMemory::getMemoryByNet(NetId);
 	if (net_mem == NULL)
 		return 0;
@@ -572,8 +577,19 @@ u_int32_t ScramcastServer::postMemory(u_int8_t NetId, u_int32_t Offset, u_int32_
 				sizeof(struct sockaddr_in));
 		if (bytes_sent != (ssize_t) ( sizeof(packet_buf) - MAX_PACKET_DATA_LEN + curr_length ) )
 		{
-		    DSEVERE("%s: could not post memory on the socket.",__func__);
-		    return bytes_sent;
+			if (bytes_sent == -1)
+			{
+#ifdef __WINDOWS__
+				DSEVERE("ScramcastServer::postMemory: could not post memory on the socket. (%lu)\n", GetLastError());
+#else
+				DSEVERE("ScramcastServer::postMemory: could not post memory on the socket. %s (%d)\n", strerror(errno), errno);
+#endif
+			}
+			else
+			{
+			    DSEVERE("ScramcastServer::postMemory: could not post memory on the socket. %d %d\n", (int32_t)bytes_sent, (int32_t) ( sizeof(packet_buf) - MAX_PACKET_DATA_LEN + curr_length ));
+			}
+			return bytes_sent;
 		}
 		Offset += curr_length;
 		remaining_length -= curr_length;

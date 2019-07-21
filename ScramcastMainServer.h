@@ -10,6 +10,7 @@
 
 #include "ScramcastServer.h"
 #include <vector>
+#include <map>
 #include <algorithm>
 using namespace std;
 
@@ -17,7 +18,7 @@ class ScramcastMainServer: public ScramcastServer {
 public:
 	ScramcastMainServer(int tcp_sock,int scram_sock_send,int scram_sock_recv, int hostId);
 	virtual ~ScramcastMainServer();
-	virtual int32_t AddMemoryWatch(u_int8_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution);
+	virtual int32_t AddMemoryWatch(u_int32_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution);
 #ifdef WIN_THREADS
 	void setThreadVars(DWORD server_thread_id, HANDLE server_thread_handle) {
 		_server_thread_id=server_thread_id;
@@ -43,11 +44,14 @@ private:
 	int set_fd_set(fd_set* read_fds);
 	int32_t memory_check();
 	int32_t send_memory_under_watch();
-	int32_t run_memwatch(u_int8_t NetId,const struct memwatch & watch);
+	int32_t run_memwatch(u_int32_t NetId,const struct memwatch & watch);
 	int _srvrSock;
 	int _bcastRecvSock;
 	vector<int> connections;
 	vector<struct memwatch> _watchers [MAX_NETWORKS];
+  #ifdef VERIFY_MSG_ORDER
+  static map<int, u_int32_t> _msgOrderVerifier [MAX_NETWORKS];
+  #endif
 	SC_MUTEX_T _watchersMutex;
 	u_int32_t _join;
 };

@@ -17,14 +17,19 @@ ScramcastSubServer::~ScramcastSubServer() {
 		closesocket(_bcastSock);
 
 }
-int32_t ScramcastSubServer::AddMemoryWatch(u_int8_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution)
+int32_t ScramcastSubServer::AddMemoryWatch(u_int32_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution)
 {
 #pragma pack(4)
 	struct { char command; u_int8_t net;u_int8_t spare[2];
 		struct memwatch m;
-
 	} buf;
 #pragma pack()
+
+	if (NetId >= MAX_NETWORKS)
+	{
+		DFATAL("Invalid Network ID.");
+	return -1;
+	}
 	if (Length % (resolution/8) != 0 || Offset % (resolution/8) != 0)
 	{
 	    DFATAL("Alignment error.");

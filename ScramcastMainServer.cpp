@@ -8,6 +8,10 @@
 #include "ScramcastMainServer.h"
 #include "ScramcastMemory.h"
 
+#ifdef VERIFY_MSG_ORDER
+map<int, u_int32_t> ScramcastMainServer::_msgOrderVerifier [MAX_NETWORKS];
+#endif
+
 ScramcastMainServer::ScramcastMainServer(int tcp_sock, int scram_sock_send,int scram_sock_recv, int hostId):ScramcastServer(scram_sock_send, hostId),_srvrSock(tcp_sock),_bcastRecvSock(scram_sock_recv),_join(SC_FALSE) {
 	_watchersMutex=SC_CREATE_MUTEX();
 }
@@ -17,8 +21,19 @@ ScramcastMainServer::~ScramcastMainServer()
 	printf("bye bye\n");
 	ATOMIC_STORE(&_join,SC_TRUE);
 	#ifdef WIN_THREADS
-		WaitForSingleObject(_server_thread_handle, 500); //200ms
-		//TODO: check returned value.
+		DWORD ret = WaitForSingleObject(_server_thread_handle, 500); //500ms
+		if (ret != WAIT_OBJECT_0)
+		{
+			if (ret == WAIT_FAILED)
+			{
+				DSEVERE("Could not terminate server thread, Error: %u\n",GetLastError());
+			}
+			else if (ret == WAIT_TIMEOUT)
+			{
+				DSEVERE("Could not terminate server thread, timeout reached\n");
+			}
+			DSEVERE("Could not terminate server thread, unexpected error\n");
+		}
 	#else
 		pthread_join(_server_thread_id, NULL);
 	#endif
@@ -46,13 +61,16 @@ static int32_t make_union(u_int32_t off1, u_int32_t len1, u_int32_t &off2, u_int
 	}
 	return 0;
 }
-int32_t ScramcastMainServer::AddMemoryWatch(u_int8_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution)
+int32_t ScramcastMainServer::AddMemoryWatch(u_int32_t NetId, u_int32_t Offset, u_int32_t Length, u_int32_t resolution)
 {
 	if (NetId >= MAX_NETWORKS)
-		return -1;
+    {
+        DFATAL("Invalid Network ID.");
+	    return -1;
+    }
 	if (Offset >= MAX_MEMORY)
 	{
-		printf (TERM_RED_COLOR "ScramcastMainServer::AddMemoryWatch: offset is too large, not adding watch\n" TERM_RESET);
+		DFATAL("offset is too large, not adding watch");
 		return -1;
 	}
 	if (Length % (resolution/8) != 0 || Offset % (resolution/8) != 0)
@@ -136,6 +154,7 @@ int ScramcastMainServer::handle_packet(struct SC_Packet* packet_buf, int32_t pac
 		packet_buf->address = swpbl(packet_buf->address);
 		packet_buf->length = swpbl(packet_buf->length);
 	}
+
 	uint32_t offset = packet_buf->address;//  for memcpy
 	uint32_t length = packet_buf->length;//  for memcpy
 	uint32_t flags = packet_buf->magic & (~MAGIC_MASK);
@@ -143,6 +162,24 @@ int ScramcastMainServer::handle_packet(struct SC_Packet* packet_buf, int32_t pac
 	ScramcastMemory * mem = ScramcastMemory::getMemoryByNet(packet_buf->net);
 	if (mem == NULL)
 		return -1;
+#ifdef VERIFY_MSG_ORDER
+	{
+	    map<int, u_int32_t>::iterator it = _msgOrderVerifier[packet_buf->net].find(packet_buf->host);
+	    if (it != _msgOrderVerifier[packet_buf->net].end())
+	    {
+            if (((*it).second + 1) != packet_buf->msg_id)
+            {
+                DSEVERE("MISSING/UNORDERED PACKETS. net %d host %d : prev MsgId: %u, curr MsgId: %u\n",
+                (int)packet_buf->net,(int)packet_buf->host,(*it).second, packet_buf->msg_id);
+            }
+            (*it).second = packet_buf->msg_id;
+	    }
+	    else
+	    {
+	        _msgOrderVerifier[packet_buf->net][packet_buf->host] = packet_buf->msg_id;
+	    }
+	}
+#endif
 	bool host_in_range = (packet_buf->host < MAX_HOSTS) && (packet_buf->host >=0);
 	bool offset_length_in_range = (offset < MAX_MEMORY) &&
 			((offset+length) <= MAX_MEMORY) && (length <= MAX_PACKET_DATA_LEN) && (length > 0);
@@ -156,8 +193,8 @@ int ScramcastMainServer::handle_packet(struct SC_Packet* packet_buf, int32_t pac
 			{
 				if ( (length % 4) != 0 )
 				{
-					fprintf(stderr,TERM_RED_COLOR 
-					"received malformed package from host %d on network %d, offset %u, length %u. length should be divadable by 4\n"
+					DSEVERE(TERM_RED_COLOR
+					"Received malformed package from host %d on network %d, offset %u, length %u. The length should be divisible by 4\n"
 					TERM_RESET, (int)packet_buf->host, (int)packet_buf->net, packet_buf->address, length);
 					return -1;
 				}
@@ -167,7 +204,7 @@ int ScramcastMainServer::handle_packet(struct SC_Packet* packet_buf, int32_t pac
 			{
 				if ( (length % 2) != 0 )
 				{
-					fprintf(stderr,TERM_RED_COLOR 
+					DSEVERE(TERM_RED_COLOR
 					"received malformed package from host %d on network %d, offset %u, length %u. length should be divadable by 2\n"
 					TERM_RESET, (int)packet_buf->host, (int)packet_buf->net, packet_buf->address, length);
 					return -1;
@@ -320,7 +357,7 @@ int32_t ScramcastMainServer::accept_connections()
 	}
 	return 0;
 }
-int32_t ScramcastMainServer::run_memwatch(u_int8_t NetId, const struct memwatch & watch)
+int32_t ScramcastMainServer::run_memwatch(u_int32_t NetId, const struct memwatch & watch)
 {
 	ScramcastMemory * mem = ScramcastMemory::getMemoryByNet(NetId);
 	if (mem == NULL)

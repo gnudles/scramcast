@@ -256,9 +256,12 @@ inline void SC_DESTROY_MUTEX( SC_MUTEX_T& m )
 
 extern int scramcast_dbg_lvl;
 //__LINE__ __FILE__ __func__
-#define DFATAL(x) do { if (scramcast_dbg_lvl & LVL_FATAL)  fprintf(stderr, TERM_RED_COLOR "%s:%d (%s): %s" TERM_RESET,__FILE__,__LINE__,__func__,x);} while (0);
+#define DFATAL(x) do { if (scramcast_dbg_lvl & LVL_FATAL)  fprintf(stderr, TERM_RED_COLOR "%s:%d (%s): %s\n" TERM_RESET,__FILE__,__LINE__,__func__,x);} while (0);
+#define DIMPORTANT(...) do { fprintf(stderr, __VA_ARGS__);} while (0);
 #define DSEVERE(...) do { if (scramcast_dbg_lvl & LVL_SEVERE)  fprintf(stderr,__VA_ARGS__);} while (0);
 #define DINFO(...) do { if (scramcast_dbg_lvl & LVL_INFO)  fprintf(stderr,__VA_ARGS__);} while (0);
 #define DINCOME(...) do { if (scramcast_dbg_lvl & LVL_INCOME)  fprintf(stderr,__VA_ARGS__);} while (0);
+
+#define VERIFY_MSG_ORDER
 
 #endif /* SC_DEFINES_H_ */
